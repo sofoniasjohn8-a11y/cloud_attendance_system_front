@@ -1,43 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { getOffices, getAttendances, clockIn, clockOut } from '../services/attendanceService';
+import { DEFAULT_CONFIG } from '../constants';
 
 const AttendanceUI = () => {
-  // Configuration - Update these with your office coordinates
-  const OFFICE_LATITUDE = 40.7128; // Example: New York
-  const OFFICE_LONGITUDE = -74.0060; // Example: New York
-  const GEOFENCE_RADIUS = 100; // meters
+  const [officeConfig, setOfficeConfig] = useState({
+    latitude: null,
+    longitude: null,
+    radius: DEFAULT_CONFIG.GEOFENCE_RADIUS,
+  });
 
-  // State Management
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isClockedIn, setIsClockedIn] = useState(false);
+  const [activeAttendanceId, setActiveAttendanceId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [attendanceLog, setAttendanceLog] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
+  const navigate = useNavigate();
+  const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
 
-  // Get geolocation data
   const { lat, lng, isLoading: locationLoading, error: locationError, isWithinOffice } = useGeolocation(
-    OFFICE_LATITUDE,
-    OFFICE_LONGITUDE,
-    GEOFENCE_RADIUS
+    officeConfig.latitude,
+    officeConfig.longitude,
+    officeConfig.radius
   );
 
-  // Real-time Clock Effect
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Load attendance log from localStorage on mount
+  // Load office config and today's attendances from API
   useEffect(() => {
-    const today = new Date().toDateString();
-    const storedLog = localStorage.getItem(`attendance_${today}`);
-    if (storedLog) {
-      setAttendanceLog(JSON.parse(storedLog));
-    }
+    getOffices()
+      .then((offices) => {
+        if (offices?.length) {
+          const { latitude, longitude, radius } = offices[0];
+          setOfficeConfig({
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            radius: radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
+          });
+        }
+      })
+      .catch(() => {});
+
+    getAttendances()
+      .then((records) => {
+        if (!records?.length) return;
+        const today = new Date().toDateString();
+        const todayRecords = records.filter(
+          (r) => new Date(r.clock_in).toDateString() === today
+        );
+        const mapped = todayRecords.map((r) => ({
+          id: r.id,
+          time: new Date(r.clock_out ?? r.clock_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+          type: r.clock_out ? 'Clock Out' : 'Clock In',
+          location: r.latitude && r.longitude ? `${parseFloat(r.latitude).toFixed(4)}, ${parseFloat(r.longitude).toFixed(4)}` : '—',
+          status: 'Completed',
+        }));
+        setAttendanceLog(mapped);
+        // If last record has no clock_out, user is still clocked in
+        const last = todayRecords[todayRecords.length - 1];
+        if (last && !last.clock_out) {
+          setIsClockedIn(true);
+          setActiveAttendanceId(last.id);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Format time for display
@@ -50,7 +82,6 @@ const AttendanceUI = () => {
     });
   };
 
-  // Handle Clock In/Out
   const handleClockToggle = async () => {
     if (!isWithinOffice && !isClockedIn) {
       setErrorMessage('You are out of office range. Cannot clock in.');
@@ -60,43 +91,26 @@ const AttendanceUI = () => {
 
     setIsLoading(true);
     try {
-      const timestamp = new Date();
-      const timeString = formatTime(timestamp);
+      let record;
+      if (!isClockedIn) {
+        record = await clockIn(lat, lng);
+        setActiveAttendanceId(record.id);
+      } else {
+        record = await clockOut(activeAttendanceId, lat, lng);
+        setActiveAttendanceId(null);
+      }
 
-      // Prepare API payload
-      const payload = {
-        timestamp,
-        lat,
-        lng,
-        type: isClockedIn ? 'clock_out' : 'clock_in',
-      };
-
-      // TODO: Replace with your Laravel backend API endpoint
-      // Example: const response = await fetch('/api/attendance/toggle', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(payload),
-      // });
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // Update local state
       const newEntry = {
-        id: Date.now(),
-        time: timeString,
+        id: record.id,
+        time: formatTime(new Date()),
         type: isClockedIn ? 'Clock Out' : 'Clock In',
         location: `${lat?.toFixed(4)}, ${lng?.toFixed(4)}`,
         status: 'Completed',
       };
 
-      setAttendanceLog([...attendanceLog, newEntry]);
+      setAttendanceLog((prev) => [...prev, newEntry]);
       setIsClockedIn(!isClockedIn);
       setErrorMessage('');
-
-      // Save to localStorage
-      const today = new Date().toDateString();
-      localStorage.setItem(`attendance_${today}`, JSON.stringify([...attendanceLog, newEntry]));
     } catch (error) {
       setErrorMessage(`Failed to update attendance. Please try again. ${error.message}`);
       setTimeout(() => setErrorMessage(''), 4000);
@@ -124,8 +138,14 @@ const AttendanceUI = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5" />
-                <span className="text-sm font-medium">Current Status</span>
+                <span className="text-sm font-medium">{currentUser.name || 'Attendance'}</span>
               </div>
+              <button
+                onClick={() => { localStorage.removeItem('current_user'); navigate('/login'); }}
+                className="flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
+              >
+                <LogOut className="w-3 h-3" /> Logout
+              </button>
               <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
                 isClockedIn 
                   ? 'bg-red-100 text-red-700' 

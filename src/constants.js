@@ -57,12 +57,10 @@ export const DEFAULT_CONFIG = {
 
 // API endpoints
 export const API_ENDPOINTS = {
-  TOGGLE_ATTENDANCE: '/attendance/toggle',
-  GET_TODAY_ATTENDANCE: '/attendance/today',
-  GET_ATTENDANCE_HISTORY: '/attendance/history',
-  UPDATE_REMARKS: '/attendance/:id/remarks',
-  GET_OFFICE_GEOFENCE: '/office/geofence',
-  REPORT_LOCATION: '/location/report',
+  OFFICES: '/offices',
+  ATTENDANCES: '/attendances',
+  SCHEDULES: '/schedules',
+  REPORTS_MONTHLY: '/reports/monthly',
 };
 
 // Color themes
