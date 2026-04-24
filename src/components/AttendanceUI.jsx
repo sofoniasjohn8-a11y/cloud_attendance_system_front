@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { getOffices, getAttendances, clockIn, clockOut } from '../services/attendanceService';
+import { getOffices, getAttendances, clockIn, clockOut, logout } from '../services/attendanceService';
 import { DEFAULT_CONFIG } from '../constants';
+import NotificationBell from './NotificationBell';
 
 const AttendanceUI = () => {
   const [officeConfig, setOfficeConfig] = useState({
+    id: null,
     latitude: null,
     longitude: null,
     radius: DEFAULT_CONFIG.GEOFENCE_RADIUS,
@@ -20,6 +22,13 @@ const AttendanceUI = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+
+  const handleLogout = async () => {
+    await logout().catch(() => {});
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('current_user');
+    navigate('/login');
+  };
 
   const { lat, lng, isLoading: locationLoading, error: locationError, isWithinOffice } = useGeolocation(
     officeConfig.latitude,
@@ -35,34 +44,58 @@ const AttendanceUI = () => {
   // Load office config and today's attendances from API
   useEffect(() => {
     getOffices()
-      .then((offices) => {
+      .then((res) => {
+        console.log('offices response:', res);
+        const offices = res?.data ?? res;
+        console.log('offices array:', offices);
         if (offices?.length) {
-          const { latitude, longitude, radius } = offices[0];
-          setOfficeConfig({
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            radius: radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
+          const { id, latitude, longitude, radius } = offices[0];
+          console.log('office id:', id);
+          // DEV MODE: use user's current location as office coords
+          navigator.geolocation.getCurrentPosition((pos) => {
+            setOfficeConfig({
+              id,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              radius: radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
+            });
+          });
+        } else {
+          navigator.geolocation.getCurrentPosition((pos) => {
+            setOfficeConfig({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              radius: DEFAULT_CONFIG.GEOFENCE_RADIUS,
+            });
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          setOfficeConfig({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            radius: DEFAULT_CONFIG.GEOFENCE_RADIUS,
+          });
+        });
+      });
 
     getAttendances()
-      .then((records) => {
+      .then((res) => {
+        const records = res?.data ?? res;
         if (!records?.length) return;
         const today = new Date().toDateString();
         const todayRecords = records.filter(
-          (r) => new Date(r.clock_in).toDateString() === today
+          (r) => new Date(r.clock_in ?? r.work_date).toDateString() === today
         );
         const mapped = todayRecords.map((r) => ({
           id: r.id,
           time: new Date(r.clock_out ?? r.clock_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
           type: r.clock_out ? 'Clock Out' : 'Clock In',
-          location: r.latitude && r.longitude ? `${parseFloat(r.latitude).toFixed(4)}, ${parseFloat(r.longitude).toFixed(4)}` : '—',
-          status: 'Completed',
+          location: r.lat_in && r.lng_in ? `${parseFloat(r.lat_in).toFixed(4)}, ${parseFloat(r.lng_in).toFixed(4)}` : '—',
+          status: r.status ?? 'Completed',
         }));
         setAttendanceLog(mapped);
-        // If last record has no clock_out, user is still clocked in
         const last = todayRecords[todayRecords.length - 1];
         if (last && !last.clock_out) {
           setIsClockedIn(true);
@@ -93,10 +126,13 @@ const AttendanceUI = () => {
     try {
       let record;
       if (!isClockedIn) {
-        record = await clockIn(lat, lng);
+        console.log('clocking in with:', { lat, lng, office_id: officeConfig.id });
+        const res = await clockIn(lat, lng, officeConfig.id);
+        record = res?.data ?? res;
         setActiveAttendanceId(record.id);
       } else {
-        record = await clockOut(activeAttendanceId, lat, lng);
+        const res = await clockOut(activeAttendanceId, lat, lng);
+        record = res?.data ?? res;
         setActiveAttendanceId(null);
       }
 
@@ -141,11 +177,12 @@ const AttendanceUI = () => {
                 <span className="text-sm font-medium">{currentUser.name || 'Attendance'}</span>
               </div>
               <button
-                onClick={() => { localStorage.removeItem('current_user'); navigate('/login'); }}
+                onClick={handleLogout}
                 className="flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
               >
                 <LogOut className="w-3 h-3" /> Logout
               </button>
+              <NotificationBell />
               <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
                 isClockedIn 
                   ? 'bg-red-100 text-red-700' 
@@ -193,10 +230,15 @@ const AttendanceUI = () => {
                   <MapPin className="w-4 h-4" />
                   <span>
                     {locationLoading ? 'Detecting location...' : 
-                     lat && lng ? `${lat.toFixed(4)}°, ${lng.toFixed(4)}°` : 
+                     lat && lng ? `${lat.toFixed(6)}°, ${lng.toFixed(6)}°` : 
                      'Location not available'}
                   </span>
                 </div>
+                {lat && lng && (
+                  <p className="text-xs text-gray-400 mt-1 font-mono">
+                    lat: {lat.toFixed(6)} | lng: {lng.toFixed(6)}
+                  </p>
+                )}
               </div>
             </div>
             {locationError && (

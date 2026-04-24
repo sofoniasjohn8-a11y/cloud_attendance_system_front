@@ -9,7 +9,6 @@ React + Vite frontend with face recognition (browser-side), geofencing, and cloc
 - React 19, Vite
 - Tailwind CSS
 - react-router-dom
-- @vladmandic/face-api (TensorFlow.js — runs fully in browser)
 - lucide-react (icons)
 
 ---
@@ -20,21 +19,14 @@ React + Vite frontend with face recognition (browser-side), geofencing, and cloc
 src/
 ├── components/
 │   ├── AttendanceUI.jsx      # Main clock-in/out screen
-│   ├── RegisterPage.jsx      # User registration + face enrollment
-│   ├── LoginPage.jsx         # Login + face verification
-│   └── FaceCapture.jsx       # Reusable webcam component
+│   ├── RegisterPage.jsx      # User registration
+│   └── LoginPage.jsx         # Login
 ├── hooks/
 │   └── useGeolocation.js     # Geofencing hook (Haversine formula)
 ├── services/
-│   ├── attendanceService.js  # All backend API calls
-│   └── faceService.js        # Face recognition logic (localStorage)
+│   └── attendanceService.js  # All backend API calls
 ├── constants.js              # API endpoints, config values
 └── App.jsx                   # Routes
-public/
-└── models/                   # face-api.js model files (loaded at runtime)
-    ├── tiny_face_detector_model-*
-    ├── face_landmark_68_model-*
-    └── face_recognition_model-*
 ```
 
 ---
@@ -54,16 +46,12 @@ public/
 
 ### 1. Register
 - User fills in name, email, password
-- Camera opens — user captures face
-- Face descriptor (128-float array) saved to `localStorage` under key `face_users`
-- User credentials saved to `localStorage` under key `users`
-- Redirects to `/login`
+- Calls `POST /api/register` → stores `auth_token` and `current_user` in localStorage
+- Redirects to `/attendance`
 
 ### 2. Login
-- User enters email + password — validated against `localStorage`
-- Camera opens — face scanned and compared against stored descriptor
-- Euclidean distance threshold: `< 0.5` = match
-- On success: user object saved to `localStorage` as `current_user`
+- User enters email + password
+- Calls `POST /api/login` → stores `auth_token` and `current_user` in localStorage
 - Redirects to `/attendance`
 
 ### 3. Clock In / Clock Out
@@ -78,6 +66,28 @@ public/
 ## Backend API Consumed
 
 Base URL: `http://localhost:8000/api` (override with `VITE_API_BASE_URL` in `.env`)
+
+### Auth
+
+| Method | Endpoint | Auth | Purpose | Request Body | Expected Response |
+|--------|----------|------|---------|--------------|-------------------|
+| POST | `/api/register` | — | Register user | `{ name, email, password }` | `{ token, user }` |
+| POST | `/api/login` | — | Login user | `{ email, password }` | `{ token, user }` |
+| POST | `/api/logout` | 🔒 Bearer | Revoke token | — | `204 No Content` |
+| GET | `/api/me` | 🔒 Bearer | Get current user | — | User object |
+
+Expected `user` object in register/login response:
+```json
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john@example.com"
+}
+```
+
+> Token is stored in `localStorage` as `auth_token` and sent as `Authorization: Bearer <token>` on all subsequent requests.
+
+---
 
 ### Offices
 
@@ -180,9 +190,8 @@ VITE_API_BASE_URL=http://localhost:8000/api
 
 | Key | Value |
 |-----|-------|
-| `users` | `{ [email]: { name, email, password } }` |
-| `face_users` | `{ [email]: { descriptor: number[] } }` |
-| `current_user` | `{ name, email }` — set on login, cleared on logout |
+| `auth_token` | Bearer token returned from `/api/login` or `/api/register` |
+| `current_user` | `{ id, name, email }` — set on login/register, cleared on logout |
 
 > **Note for backend migration:** When you add real auth (JWT/Sanctum), replace `localStorage` user storage with API calls to `POST /api/auth/register` and `POST /api/auth/login`. The face descriptor can be sent to the backend as a JSON array and stored per user in the database for server-side verification.
 
@@ -199,12 +208,6 @@ npm run dev
 
 ---
 
-## Backend Migration Notes (When Ready)
+## Backend Migration Notes
 
-Currently auth and face data are stored in `localStorage`. When you build the backend auth:
-
-1. **Register** — `POST /api/auth/register` with `{ name, email, password, face_descriptor: [] }`
-2. **Login** — `POST /api/auth/login` with `{ email, password }` → returns token
-3. **Face verify** — `POST /api/auth/verify-face` with `{ face_descriptor: [] }` → returns `{ verified: bool }`
-4. Store token in `localStorage` and send as `Authorization: Bearer <token>` header in `attendanceService.js`
-5. Replace `ProtectedRoute` check from `current_user` to token presence
+Auth is fully connected to the backend via `/api/register` and `/api/login`. Token is stored in `localStorage` as `auth_token` and sent as `Authorization: Bearer <token>` on all subsequent requests.

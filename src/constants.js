@@ -57,10 +57,20 @@ export const DEFAULT_CONFIG = {
 
 // API endpoints
 export const API_ENDPOINTS = {
+  REGISTER: '/register',
+  LOGIN: '/login',
+  LOGOUT: '/logout',
+  ME: '/me',
   OFFICES: '/offices',
   ATTENDANCES: '/attendances',
   SCHEDULES: '/schedules',
   REPORTS_MONTHLY: '/reports/monthly',
+  ADMIN_USERS: '/admin/users',
+  ADMIN_OVERVIEW: '/admin/overview',
+  ADMIN_CALENDAR: '/admin/calendar',
+  ADMIN_NOTIFY_ABSENT: '/admin/notify/absent',
+  ADMIN_NOTIFY_ABSENT_ALL: '/admin/notify/absent-all',
+  ADMIN_ATTENDANCES: '/admin/attendances',
 };
 
 // Color themes
