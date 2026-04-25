@@ -49,7 +49,7 @@ const AttendanceUI = () => {
         const offices = res?.data ?? res;
         console.log('offices array:', offices);
         if (offices?.length) {
-          const { id, latitude, longitude, radius } = offices[0];
+          const { id, latitude, longitude, radius, radius_meters } = offices[0];
           console.log('office id:', id);
           // DEV MODE: use user's current location as office coords
           navigator.geolocation.getCurrentPosition((pos) => {
@@ -57,7 +57,7 @@ const AttendanceUI = () => {
               id,
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
-              radius: radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
+              radius: radius_meters ?? radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
             });
           });
         } else {

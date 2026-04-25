@@ -66,6 +66,7 @@ export const API_ENDPOINTS = {
   SCHEDULES: '/schedules',
   REPORTS_MONTHLY: '/reports/monthly',
   ADMIN_USERS: '/admin/users',
+  ADMIN_USERS_BY_OFFICE: '/admin/users/by-office',
   ADMIN_OVERVIEW: '/admin/overview',
   ADMIN_CALENDAR: '/admin/calendar',
   ADMIN_NOTIFY_ABSENT: '/admin/notify/absent',

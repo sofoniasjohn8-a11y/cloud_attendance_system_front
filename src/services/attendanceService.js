@@ -62,6 +62,8 @@ export const getAdminCalendar = (month, year) =>
 export const getAdminUsers = () => request('GET', API_ENDPOINTS.ADMIN_USERS);
 export const getAdminUser = (id) => request('GET', `${API_ENDPOINTS.ADMIN_USERS}/${id}`);
 export const updateUserRole = (id, role) => request('PUT', `${API_ENDPOINTS.ADMIN_USERS}/${id}/role`, { role });
+export const updateUserOffice = (id, office_id) => request('PUT', `${API_ENDPOINTS.ADMIN_USERS}/${id}/office`, { office_id });
+export const getUsersByOffice = () => request('GET', `${API_ENDPOINTS.ADMIN_USERS}/by-office`);
 export const deleteUser = (id) => request('DELETE', `${API_ENDPOINTS.ADMIN_USERS}/${id}`);
 export const overrideAttendance = (id, data) => request('PUT', `${API_ENDPOINTS.ADMIN_ATTENDANCES}/${id}`, data);
 export const notifyAbsent = (user_id, date) => request('POST', API_ENDPOINTS.ADMIN_NOTIFY_ABSENT, { user_id, date });
