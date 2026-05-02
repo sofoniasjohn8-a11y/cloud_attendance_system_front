@@ -41,44 +41,22 @@ const AttendanceUI = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Load office config and today's attendances from API
+  // Load office config from DB (real saved location, not device location)
   useEffect(() => {
     getOffices()
       .then((res) => {
-        console.log('offices response:', res);
         const offices = res?.data ?? res;
-        console.log('offices array:', offices);
         if (offices?.length) {
-          const { id, latitude, longitude, radius, radius_meters } = offices[0];
-          console.log('office id:', id);
-          // DEV MODE: use user's current location as office coords
-          navigator.geolocation.getCurrentPosition((pos) => {
-            setOfficeConfig({
-              id,
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              radius: radius_meters ?? radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
-            });
-          });
-        } else {
-          navigator.geolocation.getCurrentPosition((pos) => {
-            setOfficeConfig({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              radius: DEFAULT_CONFIG.GEOFENCE_RADIUS,
-            });
+          const { id, latitude, longitude, radius_meters, radius } = offices[0];
+          setOfficeConfig({
+            id,
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            radius: radius_meters ?? radius ?? DEFAULT_CONFIG.GEOFENCE_RADIUS,
           });
         }
       })
-      .catch(() => {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          setOfficeConfig({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            radius: DEFAULT_CONFIG.GEOFENCE_RADIUS,
-          });
-        });
-      });
+      .catch(() => {});
 
     getAttendances()
       .then((res) => {
@@ -105,7 +83,6 @@ const AttendanceUI = () => {
       .catch(() => {});
   }, []);
 
-  // Format time for display
   const formatTime = (date) => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -126,7 +103,6 @@ const AttendanceUI = () => {
     try {
       let record;
       if (!isClockedIn) {
-        console.log('clocking in with:', { lat, lng, office_id: officeConfig.id });
         const res = await clockIn(lat, lng, officeConfig.id);
         record = res?.data ?? res;
         setActiveAttendanceId(record.id);
@@ -157,9 +133,7 @@ const AttendanceUI = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8">
-      {/* Main Container */}
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
             Attendance System
@@ -167,9 +141,7 @@ const AttendanceUI = () => {
           <p className="text-gray-600">Cloud-based Time Tracking</p>
         </div>
 
-        {/* Card Container */}
         <div className="bg-white rounded-2xl shadow-enterprise-lg overflow-hidden">
-          {/* Top Status Bar */}
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 min-w-0">
@@ -198,7 +170,6 @@ const AttendanceUI = () => {
             </div>
           </div>
 
-          {/* Real-time Clock Section */}
           <div className="p-6 text-center border-b border-gray-200">
             <div className="text-5xl sm:text-6xl md:text-7xl font-bold text-primary-700 font-mono mb-2">
               {formatTime(currentTime)}
@@ -213,7 +184,6 @@ const AttendanceUI = () => {
             </p>
           </div>
 
-          {/* Geofencing Status */}
           <div className="p-4 bg-gray-50 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg flex-shrink-0 ${
@@ -249,7 +219,6 @@ const AttendanceUI = () => {
             )}
           </div>
 
-          {/* Error Message Display */}
           {errorMessage && (
             <div className="p-6 bg-danger-50 border-b border-danger-200 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-danger-600 flex-shrink-0 mt-0.5" />
@@ -257,7 +226,6 @@ const AttendanceUI = () => {
             </div>
           )}
 
-          {/* Main Action Button */}
           <div className="p-6 text-center">
             <button
               onClick={handleClockToggle}
@@ -301,7 +269,6 @@ const AttendanceUI = () => {
             )}
           </div>
 
-          {/* Attendance Log Section */}
           <div className="border-t border-gray-200 p-4 sm:p-8">
             <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-primary-600" />
@@ -346,7 +313,6 @@ const AttendanceUI = () => {
             )}
           </div>
 
-          {/* Footer Info */}
           <div className="bg-gray-50 px-8 py-4 border-t border-gray-200">
             <p className="text-xs text-gray-500 text-center">
               Your location and attendance data are securely stored and transmitted to our servers.

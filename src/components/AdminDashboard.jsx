@@ -504,6 +504,16 @@ const AdminDashboard = () => {
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               </div>
+              <button
+                type="button"
+                onClick={() => navigator.geolocation.getCurrentPosition(
+                  (pos) => setOfficeForm((f) => ({ ...f, latitude: pos.coords.latitude.toFixed(7), longitude: pos.coords.longitude.toFixed(7) })),
+                  () => showMessage('Could not get location. Allow browser location access.', 'error')
+                )}
+                className="mt-2 flex items-center gap-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg transition-colors border border-blue-200"
+              >
+                <MapPin className="w-4 h-4" /> Use My Current Location
+              </button>
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleSaveOffice}
