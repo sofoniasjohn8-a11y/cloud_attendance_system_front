@@ -26,7 +26,7 @@ const AdminDashboard = () => {
   const [notifying, setNotifying] = useState(null);
   const [message, setMessage] = useState({ text: '', type: '' });
   // office form
-  const [officeForm, setOfficeForm] = useState({ name: '', latitude: '', longitude: '', radius: 100 });
+  const [officeForm, setOfficeForm] = useState({ name: '', latitude: '', longitude: '', radius_meters: 100 });
   const [editingOffice, setEditingOffice] = useState(null); // office object being edited
   const [savingOffice, setSavingOffice] = useState(false);
   const navigate = useNavigate();
@@ -200,7 +200,7 @@ const AdminDashboard = () => {
         showMessage('Office created.');
       }
       setEditingOffice(null);
-      setOfficeForm({ name: '', latitude: '', longitude: '', radius: 100 });
+      setOfficeForm({ name: '', latitude: '', longitude: '', radius_meters: 100 });
     } catch (err) {
       showMessage(err.message, 'error');
     } finally {
@@ -221,7 +221,7 @@ const AdminDashboard = () => {
 
   const startEditOffice = (office) => {
     setEditingOffice(office);
-    setOfficeForm({ name: office.name, latitude: office.latitude, longitude: office.longitude, radius: office.radius_meters ?? office.radius ?? 100 });
+    setOfficeForm({ name: office.name, latitude: office.latitude, longitude: office.longitude, radius_meters: office.radius_meters ?? office.radius ?? 100 });
   };
 
   const present = breakdown.filter((s) => s.status === 'present' || s.status === 'late');
@@ -499,8 +499,8 @@ const AdminDashboard = () => {
                 <input
                   placeholder="Radius (m)"
                   type="number"
-                  value={officeForm.radius}
-                  onChange={(e) => setOfficeForm({ ...officeForm, radius: e.target.value })}
+                  value={officeForm.radius_meters}
+                  onChange={(e) => setOfficeForm({ ...officeForm, radius_meters: e.target.value })}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               </div>
@@ -525,7 +525,7 @@ const AdminDashboard = () => {
                 </button>
                 {editingOffice && (
                   <button
-                    onClick={() => { setEditingOffice(null); setOfficeForm({ name: '', latitude: '', longitude: '', radius: 100 }); }}
+                    onClick={() => { setEditingOffice(null); setOfficeForm({ name: '', latitude: '', longitude: '', radius_meters: 100 }); }}
                     className="flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg transition-colors"
                   >
                     <X className="w-4 h-4" /> Cancel
